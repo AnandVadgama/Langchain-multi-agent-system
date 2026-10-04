@@ -18,7 +18,7 @@ def web_search(query: str) -> str:
     Search the web for recent and reliable information on a topic . Returns Titles , URLs and snippets.
     :param query: str
     """
-    results = tavily.search(query = query, max_results = 5)
+    results = tavily.search(query = query, max_results = 3)
 
     out = []
 
@@ -67,7 +67,7 @@ def scrape_url(url: str) -> str:
 
         if extracted and len(extracted.strip()) > 200:
             cleaned = re.sub(r"\s+", " ", extracted)
-            return cleaned[:5000]
+            return cleaned[:1500]
 
         # Strategy 2 → readability
 
@@ -93,7 +93,7 @@ def scrape_url(url: str) -> str:
 
         if text and len(text.strip()) > 200:
             cleaned = re.sub(r'\s+', ' ', text)
-            return cleaned[:5000]
+            return cleaned[:1500]
 
         # Strategy 3 → fallback full page extraction
 
@@ -117,15 +117,20 @@ def scrape_url(url: str) -> str:
         cleaned = re.sub(r'\s+', ' ', text)
 
         if cleaned:
-            return cleaned[:5000]
+            return cleaned[:1500]
 
-        return "Could not extract meaningful content from the page."
+    except Exception:
+        pass
 
-    except requests.exceptions.Timeout:
-        raise "Request time out while scrapping the url."
-
-    except requests.exceptions.HTTPError as e:
-        return f"HTTP error occurred: {str(e)}"
-
+    # Strategy 4 → Fallback to Tavily extract (bypasses bot blocks, JS rendering, 403s)
+    try:
+        tav_res = tavily.extract(urls=[url])
+        if tav_res and tav_res.get("results"):
+            content = tav_res["results"][0].get("raw_content", "")
+            if content and len(content.strip()) > 50:
+                cleaned = re.sub(r"\s+", " ", content)
+                return cleaned[:1500]
     except Exception as e:
         return f"Could not scrape URL: {str(e)}"
+
+    return "Could not extract meaningful content from the page."
